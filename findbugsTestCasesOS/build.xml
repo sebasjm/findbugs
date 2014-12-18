@@ -1,0 +1,72 @@
+<!-- Prerequisites:
+  Apache Ant 1.7+
+  Apache Ivy 2.4+: http://ant.apache.org/ivy/
+  git, unzip
+-->
+<project name="findbugsTestCasesOS" default="build" xmlns:ivy="antlib:org.apache.ivy.ant">
+  <target name="build"/>
+
+  <!-- usage examples:
+    ant build-revision -Drevision=3.0.0
+    ant build-revision -Drevision=master
+    ant build-revision -Drevision=d4c94995d235 
+  -->
+  <target name="build-revision" depends="export">
+    <ant dir="fbexport/findbugs"/>
+  </target>
+
+  <!-- property testproject must be set 
+    usage examples:
+    ant retrieve -Dtestproject=commons-lang-2.0
+    three folders will be created inside project directory:
+    - jar: project jars
+    - source: project source
+    - dep: project dependencies
+  -->
+  <target name="retrieve">
+    <local name="ivyfile"/>
+    <property name="ivyfile" value="projects/${testproject}/ivy.xml"/>
+    <available file="${ivyfile}" property="testproject.available"/>
+    <fail unless="testproject.available" message="unable to find ${ivyfile}"/>
+    <echo message="Retrieving '${testproject}'"/>
+    <ivy:resolve file="${ivyfile}" transitive="true" conf="default" />
+    <ivy:retrieve pattern="projects/${testproject}/dep/[artifact]-[revision].[ext]" type="jar"/>
+    <ivy:resolve file="${ivyfile}" transitive="false" conf="default" />
+    <ivy:retrieve pattern="projects/${testproject}/dep/[artifact]-[revision].[ext]" type="jar" overwriteMode="never" setId="ivy-remove-from-deps"/>
+    <delete>
+      <fileset refid="ivy-remove-from-deps"/>
+    </delete>
+    <ivy:retrieve pattern="projects/${testproject}/[type]/[artifact]-[revision].[ext]" type="jar,source"/>
+    <!--ivy:fixdeps tofile="ivy-fixed.xml" /-->
+  </target>
+
+  <target name="export">
+    <property name="revision" value="master"/>
+    <mkdir dir="fbexport"/>
+    <delete>
+        <fileset dir="fbexport" includes="**"/>
+    </delete>
+    <echo message="Exporting '${revision}' into fbexport"/>
+    <exec executable="git" spawn="false" dir="..">
+            <arg value="archive"/>
+            <arg value="${revision}"/>
+            <arg value="findbugs"/>
+            <arg value="-o"/>
+            <arg value="findbugsTestCasesOS/fbexport/fb.zip"/>
+    </exec>
+    <exec executable="unzip" dir="fbexport">
+            <arg value="-q"/>
+            <arg value="fb.zip"/>
+    </exec>
+    <delete file="fbexport/fb.zip"/>
+  </target>
+
+  <target name="clean">
+    <delete includeemptydirs="true">
+        <fileset dir="fbexport" includes="**"/>
+        <fileset dir="projects" includes="*/source/**"/>
+        <fileset dir="projects" includes="*/dep/**"/>
+        <fileset dir="projects" includes="*/jar/**"/>
+    </delete>
+  </target>
+</project>
